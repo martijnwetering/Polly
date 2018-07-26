@@ -10,11 +10,12 @@ namespace Polly.CircuitBreaker
 
         public ConsecutiveCountCircuitController(
             int exceptionsAllowedBeforeBreaking, 
-            TimeSpan durationOfBreak, 
+            TimeSpan durationOfBreak,
+            int consecutiveSuccessRecoveryThreshold,
             Action<DelegateResult<TResult>, CircuitState, TimeSpan, Context> onBreak, 
             Action<Context> onReset, 
             Action onHalfOpen
-            ) : base(durationOfBreak, onBreak, onReset, onHalfOpen)
+            ) : base(durationOfBreak, consecutiveSuccessRecoveryThreshold, onBreak, onReset, onHalfOpen)
         {
             _exceptionsAllowedBeforeBreaking = exceptionsAllowedBeforeBreaking;
         }
@@ -24,6 +25,7 @@ namespace Polly.CircuitBreaker
             using (TimedLock.Lock(_lock))
             {
                 _consecutiveFailureCount = 0;
+                _consecutiveSuccessRecoveryCount = 0;
 
                 ResetInternal_NeedsLock(context);
             }
@@ -36,7 +38,11 @@ namespace Polly.CircuitBreaker
                 switch (_circuitState)
                 {
                     case CircuitState.HalfOpen:
-                        OnCircuitReset(context);
+                        _consecutiveSuccessRecoveryCount += 1;
+                        if (_consecutiveSuccessRecoveryThreshold == _consecutiveSuccessRecoveryCount)
+                        {
+                            OnCircuitReset(context);
+                        }
                         break;
 
                     case CircuitState.Closed:
@@ -80,8 +86,6 @@ namespace Polly.CircuitBreaker
                     default:
                         throw new InvalidOperationException("Unhandled CircuitState.");
                 }
-
-
             }
         }
     }

@@ -214,6 +214,7 @@ namespace Polly
             var breakerController = new ConsecutiveCountCircuitController<TResult>(
                 handledEventsAllowedBeforeBreaking,
                 durationOfBreak,
+                1,
                 onBreak,
                 onReset,
                 onHalfOpen);
@@ -227,6 +228,38 @@ namespace Polly
                       breakerController,
                       cancellationToken,
                       continueOnCapturedContext),
+                policyBuilder.ExceptionPredicates,
+                policyBuilder.ResultPredicates,
+                breakerController
+            );
+        }
+
+        public static CircuitBreakerPolicy<TResult> CircuitBreakerAsync<TResult>(this PolicyBuilder<TResult> policyBuilder, int handledEventsAllowedBeforeBreaking, TimeSpan durationOfBreak, int consecutiveSuccessRecoveryThreshold, Action<DelegateResult<TResult>, CircuitState, TimeSpan, Context> onBreak, Action<Context> onReset, Action onHalfOpen)
+        {
+            if (handledEventsAllowedBeforeBreaking <= 0) throw new ArgumentOutOfRangeException("handledEventsAllowedBeforeBreaking", "Value must be greater than zero.");
+            if (durationOfBreak < TimeSpan.Zero) throw new ArgumentOutOfRangeException("durationOfBreak", "Value must be greater than zero.");
+
+            if (onBreak == null) throw new ArgumentNullException("onBreak");
+            if (onReset == null) throw new ArgumentNullException("onReset");
+            if (onHalfOpen == null) throw new ArgumentNullException("onHalfOpen");
+
+            var breakerController = new ConsecutiveCountCircuitController<TResult>(
+                handledEventsAllowedBeforeBreaking,
+                durationOfBreak,
+                consecutiveSuccessRecoveryThreshold,
+                onBreak,
+                onReset,
+                onHalfOpen);
+            return new CircuitBreakerPolicy<TResult>(
+                (action, context, cancellationToken, continueOnCapturedContext) =>
+                    CircuitBreakerEngine.ImplementationAsync(
+                        action,
+                        context,
+                        policyBuilder.ExceptionPredicates,
+                        policyBuilder.ResultPredicates,
+                        breakerController,
+                        cancellationToken,
+                        continueOnCapturedContext),
                 policyBuilder.ExceptionPredicates,
                 policyBuilder.ResultPredicates,
                 breakerController

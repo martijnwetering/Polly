@@ -18,6 +18,82 @@ namespace Polly.Specs.CircuitBreaker
     {
         #region Configuration tests
 
+        // Should not allow more calls in half-open then threshold
+        // Should transision to closed when treshold is met and all are success
+
+        [Fact]
+        public async Task Should_transition_from_halfopen_to_closed_when_success_threshold_is_met_and_all_calls_succeed()
+        {
+            Action<DelegateResult<ResultPrimitive>, CircuitState, TimeSpan, Context> onBreak = (_, __, ___, ____) => {  };
+            Action<Context> onReset = _ => { };
+            Action onHalfOpen = () => { };
+
+            var time = 1.January(2000);
+            SystemClock.UtcNow = () => time;
+
+            var durationOfBreak = TimeSpan.FromMinutes(1);
+
+            CircuitBreakerPolicy<ResultPrimitive> breaker = Policy
+                .HandleResult(ResultPrimitive.Fault)
+                .CircuitBreakerAsync(1, durationOfBreak, 3, onBreak, onReset, onHalfOpen);
+
+            var result = await breaker.RaiseResultSequenceAsync(ResultPrimitive.Fault).ConfigureAwait(false);
+            result.Should().Be(ResultPrimitive.Fault);
+            breaker.CircuitState.Should().Be(CircuitState.Open);
+
+            SystemClock.UtcNow = () => time.Add(durationOfBreak);
+            breaker.CircuitState.Should().Be(CircuitState.HalfOpen);
+
+            (await breaker.RaiseResultSequenceAsync(ResultPrimitive.Good).ConfigureAwait(false))
+                .Should().Be(ResultPrimitive.Good);
+            breaker.CircuitState.Should().Be(CircuitState.HalfOpen);
+
+            (await breaker.RaiseResultSequenceAsync(ResultPrimitive.Good).ConfigureAwait(false))
+                .Should().Be(ResultPrimitive.Good);
+            breaker.CircuitState.Should().Be(CircuitState.HalfOpen);
+
+            (await breaker.RaiseResultSequenceAsync(ResultPrimitive.Good).ConfigureAwait(false))
+                .Should().Be(ResultPrimitive.Good);
+            breaker.CircuitState.Should().Be(CircuitState.Closed);
+        }
+
+        [Fact]
+        public async Task Should_not_transition_from_halfopen_to_closed_if_one_of_the_test_calls_fails()
+        {
+            Action<DelegateResult<ResultPrimitive>, CircuitState, TimeSpan, Context> onBreak = (_, __, ___, ____) => { };
+            Action<Context> onReset = _ => { };
+            Action onHalfOpen = () => { };
+
+            var time = 1.January(2000);
+            SystemClock.UtcNow = () => time;
+
+            var durationOfBreak = TimeSpan.FromMinutes(1);
+
+            CircuitBreakerPolicy<ResultPrimitive> breaker = Policy
+                .HandleResult(ResultPrimitive.Fault)
+                .CircuitBreakerAsync(1, durationOfBreak, 3, onBreak, onReset, onHalfOpen);
+
+            var result = await breaker.RaiseResultSequenceAsync(ResultPrimitive.Fault).ConfigureAwait(false);
+            result.Should().Be(ResultPrimitive.Fault);
+            breaker.CircuitState.Should().Be(CircuitState.Open);
+
+            SystemClock.UtcNow = () => time.Add(durationOfBreak);
+            breaker.CircuitState.Should().Be(CircuitState.HalfOpen);
+
+            (await breaker.RaiseResultSequenceAsync(ResultPrimitive.Good).ConfigureAwait(false))
+                .Should().Be(ResultPrimitive.Good);
+            breaker.CircuitState.Should().Be(CircuitState.HalfOpen);
+
+            (await breaker.RaiseResultSequenceAsync(ResultPrimitive.Fault).ConfigureAwait(false))
+                .Should().Be(ResultPrimitive.Fault);
+            breaker.CircuitState.Should().Be(CircuitState.Open);
+
+            breaker.Awaiting(async b => await b.RaiseResultSequenceAsync(ResultPrimitive.Good))
+                .ShouldThrow<BrokenCircuitException<ResultPrimitive>>();
+                
+            breaker.CircuitState.Should().Be(CircuitState.Open);
+        }
+
         [Fact]
         public async Task Should_be_able_to_handle_a_duration_of_timespan_maxvalue()
         {

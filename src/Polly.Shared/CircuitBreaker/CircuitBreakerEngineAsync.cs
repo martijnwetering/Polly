@@ -19,7 +19,7 @@ namespace Polly.CircuitBreaker
             IEnumerable<ExceptionPredicate> shouldHandleExceptionPredicates, 
             IEnumerable<ResultPredicate<TResult>> shouldHandleResultPredicates,
             ICircuitController<TResult> breakerController,
-            CancellationToken cancellationToken, 
+            CancellationToken cancellationToken,
             bool continueOnCapturedContext)
         {
             cancellationToken.ThrowIfCancellationRequested();

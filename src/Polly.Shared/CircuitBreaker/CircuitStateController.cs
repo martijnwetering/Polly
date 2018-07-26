@@ -8,6 +8,9 @@ namespace Polly.CircuitBreaker
     {
         protected readonly TimeSpan _durationOfBreak;
         protected long _blockedTill;
+        protected int _consecutiveSuccessRecoveryThreshold;
+        protected int _consecutiveSuccessRecoveryCount;
+        protected int _pendingTestCalls;
         protected CircuitState _circuitState;
         protected DelegateResult<TResult> _lastOutcome;
 
@@ -18,12 +21,15 @@ namespace Polly.CircuitBreaker
         protected readonly object _lock = new object();
 
         protected CircuitStateController(
-            TimeSpan durationOfBreak, 
+            TimeSpan durationOfBreak,
+            int consecutiveSuccessRecoveryThreshold,
             Action<DelegateResult<TResult>, CircuitState, TimeSpan, Context> onBreak, 
             Action<Context> onReset, 
             Action onHalfOpen)
         {
             _durationOfBreak = durationOfBreak;
+            _consecutiveSuccessRecoveryThreshold = consecutiveSuccessRecoveryThreshold;
+            _pendingTestCalls = 0;
             _onBreak = onBreak;
             _onReset = onReset;
             _onHalfOpen = onHalfOpen;
@@ -156,7 +162,8 @@ namespace Polly.CircuitBreaker
                 case CircuitState.Closed:
                     break;
                 case CircuitState.HalfOpen:
-                    if (!PermitHalfOpenCircuitTest()) { throw GetBreakingException(); }
+                    _pendingTestCalls += 1;
+                    if (!PermitHalfOpenCircuitTest() && _pendingTestCalls > _consecutiveSuccessRecoveryThreshold) { throw GetBreakingException(); }
                     break;
                 case CircuitState.Open:
                     throw GetBreakingException();

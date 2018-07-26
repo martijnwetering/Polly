@@ -214,6 +214,7 @@ namespace Polly
             var breakerController = new ConsecutiveCountCircuitController<EmptyStruct>(
                 exceptionsAllowedBeforeBreaking,
                 durationOfBreak,
+                1,
                 (outcome, state, timespan, context) => onBreak(outcome.Exception, state, timespan, context),
                 onReset,
                 onHalfOpen);

@@ -20,7 +20,7 @@ namespace Polly.CircuitBreaker
             Action<DelegateResult<TResult>, CircuitState, TimeSpan, Context> onBreak, 
             Action<Context> onReset, 
             Action onHalfOpen
-            ) : base(durationOfBreak, onBreak, onReset, onHalfOpen)
+            ) : base(durationOfBreak, 1, onBreak, onReset, onHalfOpen)
         {
             _metrics = samplingDuration.Ticks < ResolutionOfCircuitTimer * NumberOfWindows
                 ? (IHealthMetrics)new SingleHealthMetrics(samplingDuration)
